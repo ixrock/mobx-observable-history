@@ -1,25 +1,23 @@
 {
-  "name": "mobx-search-params",
+  "name": "mobx-observable-history",
   "version": "1.0.0",
   "description": "History.js wrapper with observable location and reactive URLSearchParams",
   "keywords": [
     "mobx",
+    "observable",
     "history",
     "location",
-    "url-search-params",
-    "observable-url",
-    "observable-location",
-    "observable-search-params"
+    "search-params"
+  ],
+  "files": [
+    "index.*(js|d.ts)"
   ],
   "main": "index.js",
-  "types": "index.d.js",
-  "files": [
-    "dist"
-  ],
+  "types": "index.d.ts",
   "scripts": {
     "dev": "tsc -w",
     "build": "tsc",
-    "test": "jest",
+    "test": "jest --verbose",
     "test-watch": "jest --watch"
   },
   "dependencies": {

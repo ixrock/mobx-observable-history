@@ -1,5 +1,5 @@
 import "jest"
-import { isObservable, reaction, toJS } from "mobx"
+import { comparer, isObservable, reaction, toJS } from "mobx"
 import { createBrowserHistory, createPath, History, Location } from "history";
 import { createObservableHistory, ObservableHistory } from "./index";
 
@@ -11,7 +11,7 @@ beforeEach(() => {
   history = createBrowserHistory()
   navigation = createObservableHistory(history)
   navigation.listen(location => lastLocation = location)
-  jest.spyOn(navigation, "goBack").mockImplementation(makeAsync(history.goBack))
+  jest.spyOn(navigation, "goBack").mockImplementation(makeAsync(history.goBack)) // wait for "popstate" event
   jest.spyOn(navigation, "goForward").mockImplementation(makeAsync(history.goForward))
 })
 
@@ -22,7 +22,7 @@ describe("observable-history", () => {
 })
 
 describe("history.action", () => {
-  test("is observable", async () => {
+  test("is observable getter", async () => {
     history.push(getRandomLocation());
     expect(navigation.action).toBe("PUSH");
 
@@ -111,58 +111,56 @@ describe("history.searchParams is reactive", () => {
 
   test("sync with location.search", () => {
     history.replace(getRandomLocation())
-    let search = `?` + navigation.searchParams.toString();
+    let search = `?` + navigation.searchParams.toString()
     expect(lastLocation.search).toBe(search)
     expect(navigation.location.search).toBe(search)
     expect(history.location.search).toBe(search)
   })
 
+  test("updating via setter", () => {
+    history.replace("/")
+    let location = getRandomLocation();
+    navigation.searchParams = new URLSearchParams(location.search)
+    expect(lastLocation.search).toBe(location.search)
+    expect(navigation.location.search).toBe(location.search)
+  })
+
   test("partial params updates via object-api", () => {
     history.replace("/");
-    let xAllTimes = 0
-    let yTimes = 0
-    let searchParamsHistory: string[] = [];
-    let locationSearchHistory: string[] = [];
 
-    reaction(() => navigation.searchParams.getAll("x"), () => xAllTimes++)
-    reaction(() => navigation.searchParams.get("y"), () => yTimes++)
-    reaction(() => [...navigation.searchParams], params => {
-      let queryParams = params.map(pair => pair.join("=")).join("&")
-      searchParamsHistory.push(queryParams)
-    })
+    let xAllValues: any[][] = []
+    let yValues: any[] = []
+    let locationSearchHistory: string[] = [];
+    let searchParamsHistory: string[] = [];
+
     history.listen(location => {
       locationSearchHistory.push(location.search.replace("?", ""))
     })
+    reaction(() => navigation.searchParams, params => {
+      let queryParams = Array.from(params).map(pair => pair.join("=")).join("&")
+      searchParamsHistory.push(queryParams)
+    })
+    reaction(() => navigation.searchParams.get("y"), y => yValues.push(y))
+    reaction(() => navigation.searchParams.getAll("x"), allX => xAllValues.push(allX), {
+      equals: comparer.shallow // avoid updates on every search-params change
+    })
 
     navigation.push("?x=1")
-    navigation.location.search = "x=1"
-    navigation.searchParams.append("x", "1")
-    navigation.searchParams.append("x", "2")
-    navigation.searchParams.set("x", "3")
+    navigation.location.search = "x=1" // 1
+    navigation.searchParams.append("x", "1") // 2
+    navigation.searchParams.append("x", "2") // 3
+    navigation.searchParams.set("x", "3") // 4
+    navigation.searchParams.delete("x") // 5
     navigation.searchParams.delete("x")
-    navigation.searchParams.delete("x")
-    navigation.searchParams.append("y", "2")
+    navigation.searchParams.append("y", "2") // 1
     navigation.searchParams.set("a", "1")
     navigation.searchParams.sort()
-    navigation.searchParams.delete("y")
+    navigation.searchParams.delete("y") // 2
     navigation.location.search = "?z=";
 
-    let searchSnapshot = [
-      "x=1",
-      "x=1&x=1",
-      "x=1&x=1&x=2",
-      "x=3",
-      "",
-      "y=2",
-      "y=2&a=1",
-      "a=1&y=2",
-      "a=1",
-      "z=",
-    ]
     expect(locationSearchHistory).toEqual(searchParamsHistory)
-    expect(searchParamsHistory).toEqual(searchSnapshot)
-    expect(xAllTimes).toBe(searchParamsHistory.length) // getAll() triggers on any search-params change (iteration protocol?)
-    expect(yTimes).toBe(2) // "2", null
+    expect(xAllValues.length).toBe(5)
+    expect(yValues).toEqual(["2", null])
   })
 })
 

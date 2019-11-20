@@ -1,5 +1,5 @@
-import { intercept, observable, reaction } from "mobx";
-import { createBrowserHistory, createLocation, createPath, History, Location, LocationDescriptor, parsePath, UnregisterCallback } from "history";
+import { intercept, observable, reaction, transaction } from "mobx";
+import { createBrowserHistory, createLocation, createPath, History, Location, LocationDescriptor, UnregisterCallback } from "history";
 
 export interface ObservableHistory<S = any> extends History<S> {
   searchParams: URLSearchParams & { toString(): string };
@@ -8,30 +8,53 @@ export interface ObservableHistory<S = any> extends History<S> {
 }
 
 export function createObservableHistory<S>(history = createBrowserHistory<S>()): ObservableHistory<S> {
-  const disposers: UnregisterCallback[] = [];
-  const mutableQueryMethods = ["set", "sort", "delete", "append"];
+  const disposers: UnregisterCallback[] = []
 
   const data = observable({
     action: history.action,
-    location: getLocation(),
-    searchParams: getSearchParams(),
+    location: observable.object(history.location, {
+      state: observable.struct
+    }),
+    searchParams: createSearchParams(history.location.search, syncSearchParams)
   });
 
-  function normalize(urlChunk: string, prefix = "?") {
-    urlChunk = urlChunk.trim();
-    if (!urlChunk || urlChunk == prefix) return ""
-    if (urlChunk.startsWith(prefix)) return urlChunk
-    return prefix + urlChunk
+  function syncSearchParams(search: string) {
+    if (data.location.search !== normalize(data.searchParams.toString())) {
+      data.location.search = search
+      data.searchParams = createSearchParams(search, syncSearchParams);
+    }
   }
 
-  function getLocation(location = history.location): Location<S> {
-    const observableLocation = observable.object({ state: null, ...location }, {
-      state: observable.struct
-    });
-    intercept(observableLocation, change => {
+  function setLocation(newLocation: string | Location<S>) {
+    if (typeof newLocation === "string") {
+      newLocation = createLocation(newLocation)
+    }
+    let oldPath = createPath(data.location)
+    let newPath = createPath(newLocation)
+    if (oldPath !== newPath) {
+      transaction(() => {
+        Object.assign(data.location, newLocation)
+      })
+    }
+  }
+
+  disposers.push(
+    // update search-params object
+    reaction(() => data.location.search, syncSearchParams),
+
+    // update url when history.location modified directly
+    reaction(() => createPath(data.location), path => {
+      let historyPath = createPath(history.location);
+      if (historyPath !== path) {
+        history.push(createLocation(path))
+      }
+    }),
+
+    // normalize values for direct updates of history.location
+    intercept(data.location, change => {
       let { name, object } = change;
       if (!(name in object)) {
-        return null; // don't allow create new props on location object
+        return null; // don't allow create new props
       }
       if (change.type === "update") {
         switch (name) {
@@ -44,73 +67,14 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>()):
         }
       }
       return change
-    })
-    return observableLocation;
-  }
-
-  function setSearchParams(search: string): void {
-    search = normalize(search);
-    let dataSearch = data.location.search;
-    let searchParams = normalize(data.searchParams.toString());
-    if (dataSearch !== searchParams) {
-      data.location.search = search
-      data.searchParams = getSearchParams(search);
-    }
-  }
-
-  function getSearchParams(search = history.location.search) {
-    let searchParams = new URLSearchParams(search);
-    return new Proxy(searchParams, {
-      get(target, prop: string | symbol | any, context: any) {
-        let keyRef = Reflect.get(target, prop, context);
-        if (typeof keyRef === "function") {
-          return (...args: any[]) => {
-            let oldValue = target.toString();
-            let result = Reflect.apply(keyRef, target, args);
-            let isMutableOperation = mutableQueryMethods.includes(prop);
-            if (isMutableOperation) {
-              let newValue = target.toString();
-              if (oldValue !== newValue) setSearchParams(newValue);
-            }
-            return result
-          };
-        }
-        return keyRef;
-      }
-    })
-  }
-
-  disposers.push(
-    intercept(data, "location", location => {
-      if (typeof location.newValue === "string") {
-        location.newValue = parsePath(location.newValue)
-      }
-      let oldPath = createPath(data.location)
-      let newPath = createPath(location.newValue)
-      if (oldPath === newPath) {
-        return null; // skip update
-      }
-      location.newValue = getLocation(location.newValue)
-      return location;
-    }),
-
-    // update search-params object
-    reaction(() => data.location.search, setSearchParams),
-
-    // update url when history.location modified directly
-    reaction(() => createPath(data.location), path => {
-      let historyPath = createPath(history.location);
-      if (historyPath !== path) {
-        history.push(createLocation(path))
-      }
     }),
 
     // update observables from history change event
     history.listen((location, action) => {
       data.action = action
-      data.location = location
+      setLocation(location)
     })
-  );
+  )
 
   return Object.create(history, {
     action: {
@@ -121,42 +85,73 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>()):
     },
     location: {
       configurable: true,
+      set: setLocation,
       get() {
         return data.location
-      },
-      set(val: string | Location<S> | any) {
-        data.location = val
       }
     },
     searchParams: {
       configurable: true,
-      set: setSearchParams,
       get() {
-        return data.searchParams
+        return data.searchParams;
+      },
+      set(value: string | URLSearchParams) {
+        data.location.search = String(value)
       },
     },
     merge: {
-      value(location: LocationDescriptor<S>, replace = false) {
-        if (typeof location === "string") {
-          location = createLocation(location);
-          Object.entries(location).forEach(([param, value]) => {
-            // @ts-ignore
-            if (!value) delete location[param];
+      value(newLocation: LocationDescriptor<S>, replace = false) {
+        if (typeof newLocation === "string") {
+          newLocation = createLocation(newLocation);
+          Object.entries(newLocation).forEach(([param, value]) => {
+            if (!value) {
+              // @ts-ignore remove empty strings from parsed location
+              delete newLocation[param];
+            }
           })
         }
-        let newLocation = { ...data.location, ...location };
+        newLocation = { ...data.location, ...newLocation };
         if (replace) history.replace(newLocation);
         else history.push(newLocation)
       }
     },
     destroy: {
       value(this: ObservableHistory<S>) {
+        disposers.forEach(dispose => dispose())
         delete this.location;
         delete this.action;
         delete this.searchParams;
-        disposers.forEach(dispose => dispose())
         return Object.getPrototypeOf(this)
       }
     }
   })
+}
+
+function createSearchParams(search: string, onChange: (newValue: string) => void) {
+  let searchParams = new URLSearchParams(search);
+  return new Proxy(searchParams, {
+    get(target, prop: string | symbol | any, context: any) {
+      let keyRef = Reflect.get(target, prop, context);
+      if (typeof keyRef === "function") {
+        return (...args: any[]) => {
+          let oldValue = target.toString();
+          let result = Reflect.apply(keyRef, target, args);
+          let isMutableOperation = ["set", "sort", "delete", "append"].includes(prop);
+          if (isMutableOperation) {
+            let newValue = target.toString();
+            if (oldValue !== newValue) onChange(newValue)
+          }
+          return result
+        };
+      }
+      return keyRef;
+    }
+  })
+}
+
+function normalize(urlChunk: string, prefix = "?") {
+  urlChunk = String(urlChunk).trim()
+  if (!urlChunk || urlChunk == prefix) return ""
+  if (urlChunk.startsWith(prefix)) return urlChunk
+  return prefix + urlChunk
 }
