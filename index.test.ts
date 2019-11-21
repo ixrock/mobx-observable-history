@@ -120,7 +120,7 @@ describe("history.searchParams is reactive", () => {
   test("updating via setter", () => {
     history.replace("/")
     let location = getRandomLocation();
-    navigation.searchParams = new URLSearchParams(location.search)
+    navigation.searchParams = location.search as any
     expect(lastLocation.search).toBe(location.search)
     expect(navigation.location.search).toBe(location.search)
   })
@@ -161,6 +161,15 @@ describe("history.searchParams is reactive", () => {
     expect(locationSearchHistory).toEqual(searchParamsHistory)
     expect(xAllValues.length).toBe(5)
     expect(yValues).toEqual(["2", null])
+  })
+
+  test("searchParams.toggle(name, value?)", () => {
+    history.replace("/")
+    navigation.searchParams.set("x", "1")
+    navigation.searchParams.toggle("y", "1")
+    expect(lastLocation.search).toBe("?x=1&y=1")
+    navigation.searchParams.toggle("y")
+    expect(lastLocation.search).toBe("?x=1")
   })
 })
 

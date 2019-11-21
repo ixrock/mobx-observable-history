@@ -1,10 +1,16 @@
 import { intercept, observable, reaction, transaction } from "mobx";
-import { createBrowserHistory, createLocation, createPath, History, Location, LocationDescriptor, UnregisterCallback } from "history";
+import { createBrowserHistory, createLocation, createPath, History, Location, LocationDescriptor, locationsAreEqual, UnregisterCallback } from "history";
 
 export interface ObservableHistory<S = any> extends History<S> {
-  searchParams: URLSearchParams & { toString(): string };
+  searchParams: URLSearchParamsExtended;
+  getPath(): string;
   merge(location: LocationDescriptor<S>, replace?: boolean): void;
   destroy(): History<S>;
+}
+
+export interface URLSearchParamsExtended extends URLSearchParams {
+  toggle(param: string, value?: string): void
+  toString(): string;
 }
 
 export function createObservableHistory<S>(history = createBrowserHistory<S>()): ObservableHistory<S> {
@@ -25,15 +31,13 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>()):
     }
   }
 
-  function setLocation(newLocation: string | Location<S>) {
-    if (typeof newLocation === "string") {
-      newLocation = createLocation(newLocation)
+  function setLocation(location: string | Location<S>) {
+    if (typeof location === "string") {
+      location = createLocation(location)
     }
-    let oldPath = createPath(data.location)
-    let newPath = createPath(newLocation)
-    if (oldPath !== newPath) {
+    if (!locationsAreEqual(data.location, location)) {
       transaction(() => {
-        Object.assign(data.location, newLocation)
+        Object.assign(data.location, location)
       })
     }
   }
@@ -52,12 +56,8 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>()):
 
     // normalize values for direct updates of history.location
     intercept(data.location, change => {
-      let { name, object } = change;
-      if (!(name in object)) {
-        return null; // don't allow create new props
-      }
       if (change.type === "update") {
-        switch (name) {
+        switch (change.name) {
           case "search":
             change.newValue = normalize(change.newValue, "?")
             break;
@@ -99,6 +99,11 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>()):
         data.location.search = String(value)
       },
     },
+    getPath: {
+      value() {
+        return createPath(data.location)
+      }
+    },
     merge: {
       value(newLocation: LocationDescriptor<S>, replace = false) {
         if (typeof newLocation === "string") {
@@ -127,16 +132,24 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>()):
   })
 }
 
+const mutableSearchMethods = ["set", "delete", "append", "sort", "toggle"];
+
 function createSearchParams(search: string, onChange: (newValue: string) => void) {
   let searchParams = new URLSearchParams(search);
-  return new Proxy(searchParams, {
+  let extendedParams: URLSearchParamsExtended = Object.assign(searchParams, {
+    toggle(this: URLSearchParams, name: string, value: string) {
+      if (value) this.set(name, value)
+      else this.delete(name)
+    }
+  })
+  return new Proxy(extendedParams, {
     get(target, prop: string | symbol | any, context: any) {
       let keyRef = Reflect.get(target, prop, context);
       if (typeof keyRef === "function") {
         return (...args: any[]) => {
           let oldValue = target.toString();
           let result = Reflect.apply(keyRef, target, args);
-          let isMutableOperation = ["set", "sort", "delete", "append"].includes(prop);
+          let isMutableOperation = mutableSearchMethods.includes(prop);
           if (isMutableOperation) {
             let newValue = target.toString();
             if (oldValue !== newValue) onChange(newValue)
@@ -155,3 +168,5 @@ function normalize(urlChunk: string, prefix = "?") {
   if (urlChunk.startsWith(prefix)) return urlChunk
   return prefix + urlChunk
 }
+
+export default createObservableHistory;
