@@ -1,10 +1,10 @@
 import "jest"
 import { comparer, isObservable, reaction, toJS } from "mobx"
 import { createBrowserHistory, createPath, History, Location } from "history";
-import { createObservableHistory, ObservableHistory } from "./index";
+import { createObservableHistory, IObservableHistory } from "./index";
 
 let history: History;
-let navigation: ObservableHistory;
+let navigation: IObservableHistory;
 let lastLocation: Location
 
 beforeEach(() => {
@@ -163,14 +163,10 @@ describe("history.searchParams is reactive", () => {
     expect(yValues).toEqual(["2", null])
   })
 
-  test("searchParams.toggle(name, value?)", () => {
-    history.replace("/")
-    navigation.searchParams.set("x", "1")
-    navigation.searchParams.toggle("y", "1")
-    expect(lastLocation.search).toBe("?x=1&y=1")
-    navigation.searchParams.toggle("y")
-    expect(lastLocation.search).toBe("?x=1")
-  })
+  test.todo("searchParams.getArray(param: string)")
+  test.todo("searchParams.copyWith(newParams, options?)")
+  test.todo("searchParams.merge(newParams, options?)")
+  test.todo("searchParams.toString({withPrefix?, encoder?})")
 })
 
 describe("history.merge(location, replace = false)", () => {
