@@ -224,12 +224,16 @@ export class URLSearchParamsExtended implements Omit<IURLSearchParamsExtended, k
     params: T & Record<string, any | any[]>,
     options: ISearchParamsMergeOptions = {}
   ) {
-    const copy = URLSearchParamsExtended.create(this);
-    if (!params) return copy;
-    const { joinArrays, joinArraysWith, skipEmptyValues } = {
-      ...URLSearchParamsExtended.defaultOptions.get(this).defaultMergeOptions,
+    const copyInit: IURLSearchParamsInit = Object.assign({}, URLSearchParamsExtended.defaultOptions.get(this));
+    copyInit.defaultMergeOptions = {
+      ...copyInit.defaultMergeOptions,
       ...options,
-    };
+    }
+    const copy = URLSearchParamsExtended.create(this, copyInit);
+    if (!params) {
+      return copy;
+    }
+    const { joinArrays, joinArraysWith, skipEmptyValues } = copyInit.defaultMergeOptions;
     Object.entries(params).forEach(([name, value]) => {
       copy.delete(name);
       if (Array.isArray(value)) {

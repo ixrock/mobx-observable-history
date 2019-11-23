@@ -44,8 +44,8 @@ reaction(() => navigation.searchParams.get("x"), x => {
 navigation.searchParams.delete("x") // now x == null
 
 // Reacting to multiple values of one search param, e.g. ?y=1&y=2
-reaction(() => navigation.searchParams.getAll("y"), list => {
-  console.log("ALL Y", list) // list is ["1", "2"]
+reaction(() => navigation.searchParams.getAll("y"), params => {
+  console.log("Y", params) // params is ["1", "2"]
 }, {
   fireImmediately: true,
   equals: comparer.shallow

@@ -1,6 +1,6 @@
 {
   "name": "mobx-observable-history",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "History.js wrapper with observable location and reactive URLSearchParams",
   "keywords": [
     "mobx",
