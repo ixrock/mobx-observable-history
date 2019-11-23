@@ -5,6 +5,7 @@
     "moduleResolution": "node",
     "lib": ["esnext", "dom", "dom.iterable"],
     "strict": true,
+    "strictNullChecks": false,
     "declaration": true,
     "esModuleInterop": true
   },

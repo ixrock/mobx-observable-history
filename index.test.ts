@@ -162,11 +162,69 @@ describe("history.searchParams is reactive", () => {
     expect(xAllValues.length).toBe(5)
     expect(yValues).toEqual(["2", null])
   })
+})
 
-  test.todo("searchParams.getArray(param: string)")
-  test.todo("searchParams.copyWith(newParams, options?)")
-  test.todo("searchParams.merge(newParams, options?)")
-  test.todo("searchParams.toString({withPrefix?, encoder?})")
+describe("history.searchParams.getAsArray(param: string, splitter?: string | RegExp)", () => {
+  test("parse values as array for searchParams.get(param)", () => {
+    history.replace("/")
+    let xValues = [1, 2].map(String)
+    let yValues = [1, 2, 3].map(String)
+    navigation.searchParams.set("x", xValues.join())
+    navigation.searchParams.set("y", yValues.join("-"))
+    expect(navigation.searchParams.getAsArray("x")).toEqual(xValues)
+    expect(navigation.searchParams.getAsArray("y", /-/)).toEqual(yValues)
+    expect(navigation.searchParams.getAsArray("z")).toEqual([])
+  })
+})
+
+describe("history.searchParams.copyWith(newParams?: object, options?)", () => {
+  test("creates a copy with new params", () => {
+    let location = getRandomLocation();
+    location.search = location.search.replace("?", "")
+    navigation.replace(location);
+    let copy = navigation.searchParams.copyWith({ x: 1 })
+    expect(copy.toString()).toBe(location.search + '&x=1')
+    expect(navigation.searchParams.toString()).toBe(location.search)
+  })
+
+  test("customize copy with second argument `options`", () => {
+    let location = getRandomLocation();
+    navigation.replace(location);
+    let values = [1, 2, 3].map(String)
+    let copy1 = navigation.searchParams.copyWith({ x: values }, { joinArrays: false })
+    let copy2 = navigation.searchParams.copyWith({ x: values }, { joinArraysWith: "-" })
+    let copy3 = navigation.searchParams.copyWith({ x: [], y: null }, { skipEmptyValues: false })
+    expect(copy1.getAll("x")).toEqual(values)
+    expect(copy2.getAsArray("x", "-")).toEqual(values)
+    expect(copy3.toString()).toEqual(location.search.replace("?", "") + "&x=&y=")
+  })
+})
+
+describe("history.searchParams.merge(newParams: object, options?)", () => {
+  test('works as copyWith() but modifies current params', () => {
+    let initParams = new URLSearchParams({ x: "1", y: Math.random().toString() })
+    let values = [1, 2, 3].map(String)
+    history.replace(`?` + initParams)
+    navigation.searchParams.merge({ x: values }, { joinArraysWith: "-" })
+    initParams.delete("x")
+    initParams.set("x", values.join("-"))
+    expect(navigation.searchParams.toString()).toBe(String(initParams));
+  })
+})
+
+describe("history.searchParams.toString({withPrefix?, encoder?})", () => {
+  test('allows to customize output with prefix `?`', () => {
+    let location = getRandomLocation();
+    history.replace(location)
+    expect(navigation.searchParams.toString()).toBe(location.search.replace("?", ""));
+    expect(navigation.searchParams.toString({ withPrefix: true })).toBe(location.search);
+  })
+  test("by default uses encodeURI(str) param encoder", () => {
+    history.replace("/")
+    navigation.searchParams.set("x", "/test")
+    expect(navigation.searchParams.toString()).toBe('x=/test')
+    expect(navigation.searchParams.toString({ encoder: encodeURIComponent })).toBe('x=%2Ftest')
+  })
 })
 
 describe("history.merge(location, replace = false)", () => {

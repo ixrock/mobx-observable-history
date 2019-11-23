@@ -2,37 +2,17 @@ import { intercept, observable, reaction, transaction } from "mobx";
 import { createBrowserHistory, createLocation, createPath, History, Location, LocationDescriptor, locationsAreEqual, UnregisterCallback } from "history";
 
 export interface IObservableHistory<S = any> extends History<S> {
-  searchParams: IURLSearchParams;
+  searchParams: IURLSearchParamsExtended;
   getPath(): string;
   merge(location: LocationDescriptor<S>, replace?: boolean): void;
   destroy(): History<S>;
 }
 
-export type IParamEncoder = (value: string) => string
-
-export interface IObservableHistoryOptions {
-  uriParamDefaultEncoder?: IParamEncoder
+export interface IObservableHistoryInit {
+  searchParams?: IURLSearchParamsInit
 }
 
-export interface ISearchParamsToStringOptions {
-  encoder?: IParamEncoder;
-  withPrefix?: boolean;
-}
-
-export interface IURLSearchParams extends URLSearchParams {
-  uriParamDefaultEncoder: IParamEncoder
-  getArray(name: string, splitter?: string | RegExp): string[];
-  merge(names: Record<string, string | string[]> | URLSearchParams, options?: IParamsUpdateOptions): void;
-  copyWith(names: Record<string, string | string[]> | URLSearchParams, options?: IParamsUpdateOptions): IURLSearchParams;
-  toString(options?: ISearchParamsToStringOptions): string;
-}
-
-export interface IParamsUpdateOptions {
-  joinArrays?: boolean
-}
-
-export function createObservableHistory<S>(history = createBrowserHistory<S>(), options: IObservableHistoryOptions = {}): IObservableHistory<S> {
-  const { uriParamDefaultEncoder = encodeURI } = options;
+export function createObservableHistory<S>(history = createBrowserHistory<S>(), options: IObservableHistoryInit = {}): IObservableHistory<S> {
   const disposers: UnregisterCallback[] = []
 
   const data = observable({
@@ -44,9 +24,7 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>(), 
   });
 
   function createSearchParams(search = history.location.search) {
-    let params = createExtendedSearchParams(search, syncSearchParams);
-    params.uriParamDefaultEncoder = uriParamDefaultEncoder;
-    return params;
+    return URLSearchParamsExtended.create(search, options.searchParams, syncSearchParams);
   }
 
   function syncSearchParams(search: string) {
@@ -65,6 +43,13 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>(), 
         Object.assign(data.location, location)
       })
     }
+  }
+
+  function normalize(chunk: string, prefix = "?") {
+    chunk = String(chunk).trim()
+    if (!chunk || chunk == prefix) return ""
+    if (chunk.startsWith(prefix)) return chunk
+    return prefix + chunk
   }
 
   disposers.push(
@@ -157,44 +142,115 @@ export function createObservableHistory<S>(history = createBrowserHistory<S>(), 
   })
 }
 
-const searchParamsExtras: Omit<IURLSearchParams, keyof URLSearchParams> = {
-  uriParamDefaultEncoder: encodeURI,
-  getArray(this: IURLSearchParams, name: string, splitter: string | RegExp = ",") {
-    let data = this.get(name);
+export interface IURLSearchParamsExtended extends URLSearchParamsExtended, URLSearchParams {
+}
+
+interface IURLSearchParamsInit {
+  defaultMergeOptions?: ISearchParamsMergeOptions
+  defaultStringifyOptions?: ISearchParamsStringifyOptions
+}
+
+export interface ISearchParamsMergeOptions {
+  joinArrays?: boolean
+  joinArraysWith?: string
+  skipEmptyValues?: boolean
+}
+
+export interface ISearchParamsStringifyOptions {
+  withPrefix?: boolean;
+  encoder?: (value: string) => string;
+}
+
+export class URLSearchParamsExtended implements Omit<IURLSearchParamsExtended, keyof URLSearchParams> {
+  private static defaultOptions = new WeakMap<URLSearchParams, IURLSearchParamsInit>();
+
+  static create(search: string | URLSearchParams, init: IURLSearchParamsInit = {}, onChange?: (newSearch: string) => void) {
+    let searchParams = new URLSearchParams(search) as IURLSearchParamsExtended;
+    let searchParamsExtras = Object.getOwnPropertyDescriptors(URLSearchParamsExtended.prototype);
+    delete searchParamsExtras.constructor;
+    Object.defineProperties(searchParams, searchParamsExtras);
+
+    URLSearchParamsExtended.defaultOptions.set(searchParams, {
+      defaultMergeOptions: Object.assign({
+        joinArrays: true,
+        joinArraysWith: ",",
+        skipEmptyValues: true,
+      }, init.defaultMergeOptions),
+      defaultStringifyOptions: Object.assign({
+        encoder: encodeURI,
+        withPrefix: false,
+      }, init.defaultStringifyOptions)
+    });
+
+    if (!onChange) {
+      return searchParams;
+    }
+    return new Proxy(searchParams, {
+      get(target, prop: string | symbol | any, context: any) {
+        let keyRef = Reflect.get(target, prop, context);
+        if (typeof keyRef === "function") {
+          return (...args: any[]) => {
+            let oldValue = target.toString();
+            let result = Reflect.apply(keyRef, target, args);
+            let newValue = target.toString()
+            if (oldValue !== target.toString()) onChange(newValue)
+            return result
+          };
+        }
+        return keyRef;
+      }
+    })
+  }
+
+  getAsArray(this: IURLSearchParamsExtended, name: string, splitter?: string | RegExp) {
+    const { joinArraysWith } = URLSearchParamsExtended.defaultOptions.get(this).defaultMergeOptions;
+    splitter = splitter || joinArraysWith
+    const data = this.get(name);
     return data ? data.split(splitter) : []
-  },
-  merge(
-    this: IURLSearchParams,
-    params: Record<string, string | string[]> | URLSearchParams,
-    options?: IParamsUpdateOptions
+  }
+
+  merge<T>(
+    this: IURLSearchParamsExtended,
+    params: T & Record<string, any | any[]>,
+    options?: ISearchParamsMergeOptions,
   ) {
-    let copy = this.copyWith(params, options);
+    const copy = this.copyWith(params, options);
     Array.from(this.keys()).forEach(key => this.delete(key))
     Array.from(copy.entries()).forEach(([key, value]) => this.append(key, value))
-  },
-  copyWith(
-    this: IURLSearchParams,
-    params: Record<string, string | string[]> | URLSearchParams,
-    { joinArrays = true }: IParamsUpdateOptions = {}
+  }
+
+  copyWith<T>(
+    this: IURLSearchParamsExtended,
+    params: T & Record<string, any | any[]>,
+    options: ISearchParamsMergeOptions = {}
   ) {
-    let copy = createExtendedSearchParams(this);
+    const copy = URLSearchParamsExtended.create(this);
     if (!params) return copy;
-    let entries = params instanceof URLSearchParams ? Array.from(params.entries()) : Object.entries(params)
-    entries.forEach(([name, value]) => {
+    const { joinArrays, joinArraysWith, skipEmptyValues } = {
+      ...URLSearchParamsExtended.defaultOptions.get(this).defaultMergeOptions,
+      ...options,
+    };
+    Object.entries(params).forEach(([name, value]) => {
       copy.delete(name);
-      if (!value || !value.length) return; // skip empty
       if (Array.isArray(value)) {
-        if (joinArrays) copy.append(name, value.join(","))
+        if (skipEmptyValues && !value.length) return;
+        if (joinArrays) copy.append(name, value.join(joinArraysWith))
         else value.forEach(val => copy.append(name, val))
       }
       else {
+        if (value == null) value = ""
+        if (skipEmptyValues && !String(value).length) return;
         copy.append(name, value)
       }
     })
     return copy;
-  },
-  toString(this: IURLSearchParams, params: ISearchParamsToStringOptions = {}) {
-    const { encoder = this.uriParamDefaultEncoder, withPrefix = false } = params;
+  }
+
+  toString(this: IURLSearchParamsExtended, options: ISearchParamsStringifyOptions = {}) {
+    const { encoder, withPrefix } = {
+      ...URLSearchParamsExtended.defaultOptions.get(this).defaultStringifyOptions,
+      ...options
+    };
     const prefix = withPrefix ? "?" : "";
     if (encoder === encodeURIComponent) {
       return prefix + URLSearchParams.prototype.toString.call(this)
@@ -205,36 +261,6 @@ const searchParamsExtras: Omit<IURLSearchParams, keyof URLSearchParams> = {
         .join("&")
     }
   }
-}
-
-export function createExtendedSearchParams(search: string | URLSearchParams, onChange?: (newValue: string) => void) {
-  let searchParams = new URLSearchParams(search) as IURLSearchParams;
-  Object.assign(searchParams, searchParamsExtras);
-  if (!onChange) {
-    return searchParams;
-  }
-  return new Proxy(searchParams, {
-    get(target, prop: string | symbol | any, context: any) {
-      let keyRef = Reflect.get(target, prop, context);
-      if (typeof keyRef === "function") {
-        return (...args: any[]) => {
-          let oldValue = target.toString({ encoder: searchParams.uriParamDefaultEncoder });
-          let result = Reflect.apply(keyRef, target, args);
-          let newValue = target.toString({ encoder: searchParams.uriParamDefaultEncoder })
-          if (oldValue !== target.toString()) onChange(newValue)
-          return result
-        };
-      }
-      return keyRef;
-    }
-  })
-}
-
-function normalize(urlChunk: string, prefix = "?") {
-  urlChunk = String(urlChunk).trim()
-  if (!urlChunk || urlChunk == prefix) return ""
-  if (urlChunk.startsWith(prefix)) return urlChunk
-  return prefix + urlChunk
 }
 
 export default createObservableHistory;
