@@ -20,16 +20,17 @@ to use reactivity everywhere.
 ## Examples
 
 ```js
-import { autorun, reaction, toJS, comparer } from "mobx"
+import { autorun, reaction, comparer } from "mobx"
 import { createBrowserHistory } from "history";
 import { createObservableHistory } from "mobx-observable-history"
 
 const browserHistory = createBrowserHistory();
 const navigation = createObservableHistory(browserHistory);
 
-// Reacting to every location change
+// Reacting to any location change
 autorun(() => {
-  console.log('LOCATION', toJS(navigation))
+  const {pathname, search, hash} = navigation.location
+  console.log("LOCATION", {pathname, search, hash})
 })
 
 // Reacting to partial location change
@@ -41,7 +42,7 @@ reaction(() => navigation.location.pathname, path => {
 reaction(() => navigation.searchParams.get("x"), x => {
   console.log("X", x) // x == ""
 })
-navigation.searchParams.delete("x") // now x == null
+navigation.searchParams.delete("x") // x == null
 
 // Reacting to multiple values of one search param, e.g. ?y=1&y=2
 reaction(() => navigation.searchParams.getAll("y"), params => {
