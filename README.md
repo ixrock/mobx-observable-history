@@ -7,19 +7,19 @@ _History.js wrapper with observable location and reactive URLSearchParams_
 - Yarn `yarn add mobx-observable-history`
 
 ## Why
-When work on projects with great [mobx](https://github.com/mobxjs/mobx) it feels natural 
+When work on projects great [mobx](https://github.com/mobxjs/mobx) it feels natural 
 to use reactivity everywhere.
 
 ## Benefits
-- convenient api to manage current location state  
+- convenient api to manage current location's state  
 - observable `history.location` and `history.action`
 - observable `history.searchParams` which is [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/URLSearchParams) object with some extras
-- modifying `history.location` prevents redundant transitions to same location (e.g. double clicks)
 - compatible with [react-router](https://reacttraining.com/react-router/web/guides/quick-start)
+- allows to get rid of `@withRouter` decorator when work with `react` and `react-router`
 
 ## Examples
 
-```js
+```javascript
 import { autorun, reaction, comparer } from "mobx"
 import { createBrowserHistory } from "history";
 import { createObservableHistory } from "mobx-observable-history"
@@ -34,15 +34,9 @@ autorun(() => {
 })
 
 // Reacting to partial location change
-reaction(() => navigation.location.pathname, path => {
-  console.log("PATH", path)
+reaction(() => navigation.location.pathname, page => {
+  console.log("PAGE", page)
 })
-
-// Reacting to single search param, e.g. ?x=
-reaction(() => navigation.searchParams.get("x"), x => {
-  console.log("X", x) // x == ""
-})
-navigation.searchParams.delete("x") // x == null
 
 // Reacting to multiple values of one search param, e.g. ?y=1&y=2
 reaction(() => navigation.searchParams.getAll("y"), params => {
@@ -52,54 +46,88 @@ reaction(() => navigation.searchParams.getAll("y"), params => {
   equals: comparer.shallow
 })
 
-// Partial location updates
+// Partial updates
 navigation.location.pathname = "/path"  // push history to new location, same as navigation.merge("/path")
 navigation.location.search = "?x=1" // `?` can be omitted
 navigation.location.hash = "#y" // `#` can be omitted
 navigation.merge({pathname: "/path", search: "z=3"}) // push history to new location 
 navigation.merge("/path?search=text", true); // replace history with merged location  
+navigation.searchParams.delete("x") // remove all ?x=1&x=.. from search params
+navigation.searchParams.set("y", "2") // remove previous all ?y=1&y=2&y=etc. and set to single value
 ```
 
 ## API
-- Get observable current location string (pathname + search + hash)
-```ts
-history.getPath(): string
+
+### history.getPath(): string
+Get observable current location string (pathname + search + hash)
+
+Examples:
+```javascript
+autorun(() => console.log("PATH", history.getPath()))
 ```
 
-- Merging current location.
-```ts
-history.merge(location: string | object, replace?: boolean): void
+### history.merge(location: string | object, replace?: boolean): void
+Merging current location (pathname and/or search-params and/or hash)
+
+Examples:
+```javascript
+history.merge({pathname: "/test"})       // history.push + merge
+history.merge("/test?x=1&x2#tag")
+history.merge({pathname: "/test"}, true) // history.replace + merge
 ```
 
-- Destroy and return underlying history.js object.
-```ts
-history.destroy(): History
-```
+### history.destroy(): History
+Destroy and return underlying history.js object.
 
-- Standard URLSearchParams object with following extra goodies:
-```ts
-history.searchParams
-```
+### history.searchParams
+Standard URLSearchParams object with following extra goodies:
 
-- Parse first search param from `searchParams.get(name)` as array. 
-```ts
-history.searchParams.getAsArray(name: string, splitter = ","): string[]
-```
+- ### history.searchParams.getAsArray(name: string, splitter = ","): string[]
+    Parse first search param from `searchParams.get(name)` as array. 
+    
+    Examples:
+    ```javascript
+    history.location.search = "?x=1-2-3"
+    history.searchParams.getAsArray("x", "-") // ["1","2","3"]
+    history.location.search = "?x="+ [4,5].join(",")
+    history.searchParams.getAsArray("x") // ["4","5"]
+    ```
 
-- Partial updates of current search params.
-```ts
-history.searchParams.merge(params: object, options?: { joinArrays?: true joinArraysWith?: "," skipEmptyValues?: true })
-```
+- ### history.searchParams.merge(params: object, options?: { joinArrays?: true, joinArraysWith?: ",", skipEmptyValues?: true })
+    Partial updates of current search params. Second optional argument `options` has 3 params:
+    - `joinArrays` join array values of single param, `merge({x: [1,2]}) => x=1,2` (default: true)
+    - `joinArraysWith` (default: ",") 
+    - `skipEmptyValues` skip empty values (null, undefined, '') and don't add empty params like `&x=` (default: true)
+    
+    Examples:
+    ```javascript
+    history.location.search = "x=1&x=2&y=3&z=4"
+    history.searchParams.merge({z: ["a", "b", "c"], x: null}) // y=3&z=a,b,c  
+    history.searchParams.merge({z: ["a", "b", "c"], x: null}, {joinArrays: false}) // y=3&z=a&z=b&z=c  
+    history.searchParams.merge({x: ""}, {skipEmptyValues: false}) // y=3&z=4&x=
+    ```
 
-- Creates copy of search-params. Usable for building query strings based on current location.
-```ts
-history.searchParams.copyWith(params: object, options?: { joinArrays?: true joinArraysWith?: "," skipEmptyValues?: true })
-````
+- ### history.searchParams.copyWith(params: object, options?: { joinArrays?: true, joinArraysWith?: ",", skipEmptyValues?: true })
+    Creates copy of search-params. Usable for building query strings based on current location.
+    Second argument `options` has same definition as in `merge()` above since it uses `copyWith()` under the hood.
+    
+    Examples:
+    ```javascript
+    history.location.search = `?namespace=default&context=other`
+    history.searchParams.copyWith({namespace: "other"}).toString()
+    ```
 
-- Patched version of standard `searchParams.toString()`
-```ts
-history.searchParams.toString(options?: { withPrefix?: boolean; encoder?: (val: string) => string })
-```
+- ### history.searchParams.toString(options?: { withPrefix?: boolean, encoder?: (val: string) => string })
+    Modified version of standard `toString()` with possibility to customize output:
+    - `withPrefix` adds `?` prefix to string output (default: false)
+    - `encoder` function to encode param values (default: `window.encodeURI`) 
+
+    Examples:
+    ```javascript
+    history.searchParams.search = `?x=1&context=/test`
+    history.searchParams.toString({withPrefix: true}) // ?x=1&context=/test 
+    history.searchParams.toString({encoder: encodeURIComponent}) // x=1&context=%2Ftest 
+    ```
 
 ## License
 MIT
