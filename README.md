@@ -7,7 +7,7 @@ _History.js wrapper with observable location and reactive URLSearchParams_
 - Yarn `yarn add mobx-observable-history`
 
 ## Why
-When work on projects great [mobx](https://github.com/mobxjs/mobx) it feels natural 
+When work on projects [mobx](https://github.com/mobxjs/mobx) it feels natural 
 to use reactivity everywhere.
 
 ## Benefits
@@ -15,7 +15,6 @@ to use reactivity everywhere.
 - observable `history.location` and `history.action`
 - observable `history.searchParams` which is [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/URLSearchParams) object with some extras
 - compatible with [react-router](https://reacttraining.com/react-router/web/guides/quick-start)
-- allows to get rid of `@withRouter` decorator when work with `react` and `react-router`
 
 ## Examples
 
@@ -82,7 +81,7 @@ Destroy and return underlying history.js object.
 ### history.searchParams
 Standard URLSearchParams object with following extra goodies:
 
-- ### history.searchParams.getAsArray(name: string, splitter = ","): string[]
+- ### searchParams.getAsArray(name: string, splitter = ","): string[]
     Parse first search param from `searchParams.get(name)` as array. 
     
     Examples:
@@ -93,7 +92,7 @@ Standard URLSearchParams object with following extra goodies:
     history.searchParams.getAsArray("x") // ["4","5"]
     ```
 
-- ### history.searchParams.merge(params: object, options?: { joinArrays?: true, joinArraysWith?: ",", skipEmptyValues?: true })
+- ### searchParams.merge(params: object, options?: { joinArrays?, joinArraysWith?, skipEmptyValues? })
     Partial updates of current search params. Second optional argument `options` has 3 params:
     - `joinArrays` join array values of single param, `merge({x: [1,2]}) => x=1,2` (default: true)
     - `joinArraysWith` (default: ",") 
@@ -107,7 +106,7 @@ Standard URLSearchParams object with following extra goodies:
     history.searchParams.merge({x: ""}, {skipEmptyValues: false}) // y=3&z=4&x=
     ```
 
-- ### history.searchParams.copyWith(params: object, options?: { joinArrays?: true, joinArraysWith?: ",", skipEmptyValues?: true })
+- ### searchParams.copyWith(params: object, options?: { joinArrays?, joinArraysWith?, skipEmptyValues? })
     Creates copy of search-params. Usable for building query strings based on current location.
     Second argument `options` has same definition as in `merge()` above since it uses `copyWith()` under the hood.
     
@@ -117,7 +116,7 @@ Standard URLSearchParams object with following extra goodies:
     history.searchParams.copyWith({namespace: "other"}).toString()
     ```
 
-- ### history.searchParams.toString(options?: { withPrefix?: boolean, encoder?: (val: string) => string })
+- ### searchParams.toString(options?: { withPrefix?, encoder? })
     Modified version of standard `toString()` with possibility to customize output:
     - `withPrefix` adds `?` prefix to string output (default: false)
     - `encoder` function to encode param values (default: `window.encodeURI`) 
