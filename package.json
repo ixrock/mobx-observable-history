@@ -1,8 +1,15 @@
 {
   "name": "mobx-observable-history",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "History.js wrapper with observable location and reactive URLSearchParams",
   "repository": "https://github.com/ixrock/mobx-observable-history",
+  "scripts": {
+    "dev": "npm run build -- --watch",
+    "build": "tsc",
+    "test": "jest --verbose",
+    "test-watch": "jest --watch",
+    "pack": "npm pack"
+  },
   "keywords": [
     "mobx",
     "observable",
@@ -12,29 +19,24 @@
     "url-search-params",
     "url-search-params-extended"
   ],
-  "files": [
-    "index.*(js|d.ts)"
-  ],
   "main": "index.js",
   "types": "index.d.ts",
-  "scripts": {
-    "dev": "tsc -w",
-    "build": "tsc",
-    "test": "jest --verbose",
-    "test-watch": "jest --watch"
-  },
+  "files": [
+    "lib/*.*(js|d.ts)",
+    "index.d.ts"
+  ],
   "dependencies": {
     "@types/history": "^4.7.3",
     "history": "^4.10.1",
-    "mobx": "^5.15.0"
+    "mobx": "^5.15.4"
   },
   "devDependencies": {
-    "@types/jest": "^24.0.23",
-    "@types/node": "^12.12.11",
-    "husky": "^3.1.0",
-    "jest": "^24.9.0",
-    "ts-jest": "^24.1.0",
-    "typescript": "^3.7.2"
+    "@types/jest": "^25.1.4",
+    "@types/node": "^13.9.3",
+    "husky": "^4.2.3",
+    "jest": "^25.1.0",
+    "ts-jest": "^25.2.1",
+    "typescript": "^3.8.3"
   },
   "husky": {
     "hooks": {
