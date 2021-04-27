@@ -1,14 +1,19 @@
 {
   "name": "mobx-observable-history",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "History.js wrapper with observable location and reactive URLSearchParams",
   "repository": "https://github.com/ixrock/mobx-observable-history",
   "scripts": {
     "dev": "npm run build -- --watch",
     "build": "tsc",
-    "test": "jest --verbose",
+    "test": "jest",
     "test-watch": "jest --watch",
     "pack": "npm pack"
+  },
+  "jest": {
+    "verbose": true,
+    "preset": "ts-jest",
+    "testEnvironment": "jsdom"
   },
   "keywords": [
     "mobx",
@@ -26,22 +31,16 @@
     "index.d.ts"
   ],
   "dependencies": {
-    "@types/history": "^4.7.3",
+    "@types/history": "^4.7.8",
     "history": "^4.10.1",
-    "mobx": "^5.15.4"
+    "mobx": "^6.3.0"
   },
   "devDependencies": {
-    "@types/jest": "^25.2.1",
-    "@types/node": "^13.13.4",
-    "husky": "^4.2.5",
-    "jest": "^25.5.0",
-    "ts-jest": "^25.4.0",
-    "typescript": "^3.8.3"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "npm test"
-    }
+    "@types/jest": "^26.0.23",
+    "@types/node": "^15.0.0",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.5",
+    "typescript": "^4.2.4"
   },
   "author": "ixrock",
   "license": "MIT"

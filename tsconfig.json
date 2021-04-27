@@ -1,13 +1,15 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "lib": ["esnext", "dom", "dom.iterable"],
+    "target": "ES6",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "strict": true,
     "strictNullChecks": false,
     "declaration": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": true
   },
   "include": [
     "index.ts"

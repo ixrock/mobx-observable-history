@@ -6,6 +6,10 @@ _History.js wrapper with observable location and reactive URLSearchParams_
 - NPM `npm i mobx-observable-history`
 - Yarn `yarn add mobx-observable-history`
 
+## Dependencies:
+- `mobx: "^6.0"`
+- `history: "^4.0"`
+
 ## Why
 When work on projects [mobx](https://github.com/mobxjs/mobx) it feels natural 
 to use reactivity everywhere.
@@ -13,7 +17,7 @@ to use reactivity everywhere.
 ## Benefits
 - convenient api to manage current location's state  
 - observable `history.location` and `history.action`
-- observable `history.searchParams` which is [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/URLSearchParams) object with some extras
+- observable `history.searchParams` is [URLSearchParams](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams/URLSearchParams) object with extra goodies (see below)
 - compatible with [react-router](https://reacttraining.com/react-router/web/guides/quick-start)
 
 ## Examples
@@ -23,8 +27,8 @@ import { autorun, reaction, comparer } from "mobx"
 import { createBrowserHistory } from "history";
 import { createObservableHistory } from "mobx-observable-history"
 
-const browserHistory = createBrowserHistory();
-const navigation = createObservableHistory(browserHistory);
+const history = createBrowserHistory();
+const navigation = createObservableHistory(history);
 
 // Reacting to any location change
 autorun(() => {
@@ -42,7 +46,7 @@ reaction(() => navigation.searchParams.getAll("y"), params => {
   console.log("Y", params) // params is ["1", "2"]
 }, {
   fireImmediately: true,
-  equals: comparer.shallow
+  equals: comparer.shallow,
 })
 
 // Partial updates
@@ -57,16 +61,16 @@ navigation.searchParams.set("y", "2") // remove previous all ?y=1&y=2&y=etc. and
 
 ## API
 
-### history.getPath(): string
-Get observable current location string (pathname + search + hash)
+### history.toString(): string
+Get observable location (pathname + search + hash)
 
 Examples:
 ```javascript
-autorun(() => console.log("PATH", history.getPath()))
+autorun(() => console.log("LOCATION", history.toString()))
 ```
 
-### history.merge(location: string | object, replace?: boolean): void
-Merging current location (pathname and/or search-params and/or hash)
+### history.merge(location: string | object | URLSearchParams, replace?: boolean): void
+Merge partial location (pathname, search, hash)
 
 Examples:
 ```javascript
@@ -75,58 +79,26 @@ history.merge("/test?x=1&x2#tag")
 history.merge({pathname: "/test"}, true) // history.replace + merge
 ```
 
+### history.normalize(location: string | LocationDescriptor, opts?: { skipEmpty = false }): string
+Normalize location and return new object `{pathname, search, hash}`
+
 ### history.destroy(): History
-Destroy and return underlying history.js object.
+Stops internal observations and return native history.js object
 
-### history.searchParams
-Standard URLSearchParams object with following extra goodies:
+## history.searchParams is observable URLSearchParams() with extra goodies:
 
-- ### searchParams.getAsArray(name: string, splitter = ","): string[]
-    Parse first search param from `searchParams.get(name)` as array. 
-    
-    Examples:
-    ```javascript
-    history.location.search = "?x=1-2-3"
-    history.searchParams.getAsArray("x", "-") // ["1","2","3"]
-    history.location.search = "?x="+ [4,5].join(",")
-    history.searchParams.getAsArray("x") // ["4","5"]
-    ```
+- ### history.searchParams.merge(search: string | object | URLSearchParams)
+  Merge new search params with existing. 
 
-- ### searchParams.merge(params: object, options?: { joinArrays?, joinArraysWith?, skipEmptyValues? })
-    Partial updates of current search params. Second optional argument `options` has 3 params:
-    - `joinArrays` join array values of single param, `merge({x: [1,2]}) => x=1,2` (default: true)
-    - `joinArraysWith` (default: ",") 
-    - `skipEmptyValues` skip empty values (null, undefined, '') and don't add empty params like `&x=` (default: true)
-    
-    Examples:
-    ```javascript
-    history.location.search = "x=1&x=2&y=3&z=4"
-    history.searchParams.merge({z: ["a", "b", "c"], x: null}) // y=3&z=a,b,c  
-    history.searchParams.merge({z: ["a", "b", "c"], x: null}, {joinArrays: false}) // y=3&z=a&z=b&z=c  
-    history.searchParams.merge({x: ""}, {skipEmptyValues: false}) // y=3&z=4&x=
-    ```
+- ### history.searchParams.replace(search: string | object | URLSearchParams)
+  Fully replace current search params.
 
-- ### searchParams.copyWith(params: object, options?: { joinArrays?, joinArraysWith?, skipEmptyValues? })
-    Creates copy of search-params. Usable for building query strings based on current location.
-    Second argument `options` has same definition as in `merge()` above since it uses `copyWith()` under the hood.
-    
-    Examples:
-    ```javascript
-    history.location.search = `?namespace=default&context=other`
-    history.searchParams.copyWith({namespace: "other"}).toString()
-    ```
+- ### history.searchParams.deleteAll()
+  Clear all current search params.
 
-- ### searchParams.toString(options?: { withPrefix?, encoder? })
-    Modified version of standard `toString()` with possibility to customize output:
-    - `withPrefix` adds `?` prefix to string output (default: false)
-    - `encoder` function to encode param values (default: `window.encodeURI`) 
-
-    Examples:
-    ```javascript
-    history.searchParams.search = `?x=1&context=/test`
-    history.searchParams.toString({withPrefix: true}) // ?x=1&context=/test 
-    history.searchParams.toString({encoder: encodeURIComponent}) // x=1&context=%2Ftest 
-    ```
+- ### history.searchParams.toString(opts?: { withPrefix = false })
+  Observable search-params string representation. 
+    - `{withPrefix: true}` adds `?` prefix to output (default: false)
 
 ## License
 MIT
