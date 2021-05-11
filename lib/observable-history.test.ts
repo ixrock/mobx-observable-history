@@ -81,7 +81,7 @@ describe("history.merge(location, replace = false)", () => {
     let location2 = getRandomLocation()
     history.replace(location1)
 
-    navigation.merge(location2.pathname);
+    navigation.merge({ pathname: location2.pathname });
     expect(currentLocation).toMatchObject({
       ...location1,
       pathname: location2.pathname

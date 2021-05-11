@@ -105,7 +105,7 @@ export class ObservableHistory<S extends LocationState = {}> {
     };
   }
 
-  protected normalize(location: string | Partial<Location<S>>, { skipEmpty = false } = {}): Location<S> {
+  public normalize(location: string | Partial<Location<S>>, { skipEmpty = false } = {}): Location<S> {
     if (typeof location === "string") location = parsePath(location) as Location<S>;
     if (location.search == "?") location.search = ""
     if (location.hash == "#") location.hash = ""
@@ -118,10 +118,10 @@ export class ObservableHistory<S extends LocationState = {}> {
     return location as Location<S>;
   }
 
-  public merge(location: string | Partial<Location<S>>, replace = false): void {
+  public merge(location: Partial<Location<S>>, replace = false): void {
     location = {
       ...this.location,
-      ...this.normalize(location, { skipEmpty: true }),
+      ...this.normalize(location),
     };
     if (replace) {
       this.history.replace(location);

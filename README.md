@@ -54,7 +54,6 @@ navigation.location.pathname = "/path"  // push history to new location, same as
 navigation.location.search = "?x=1" // `?` can be omitted
 navigation.location.hash = "#y" // `#` can be omitted
 navigation.merge({pathname: "/path", search: "z=3"}) // push history to new location 
-navigation.merge("/path?search=text", true); // replace history with merged location  
 navigation.searchParams.delete("x") // remove all ?x=1&x=.. from search params
 navigation.searchParams.set("y", "2") // remove previous all ?y=1&y=2&y=etc. and set to single value
 ```
@@ -69,7 +68,7 @@ Examples:
 autorun(() => console.log("LOCATION", history.toString()))
 ```
 
-### history.merge(location: string | object | URLSearchParams, replace?: boolean): void
+### history.merge(location: object | Partial<Location>, replace?: boolean): void
 Merge partial location (pathname, search, hash)
 
 Examples:
