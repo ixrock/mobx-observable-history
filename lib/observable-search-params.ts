@@ -57,7 +57,7 @@ export class ObservableSearchParams {
 
     Array.from(new URLSearchParams(search)).forEach(([param, value]) => {
       if (skipEmpty && !value) return;
-      const values: string[] = joinArraysWith ? value.split(joinArraysWith) : [value];
+      const values: string[] = joinArrays ? value.split(joinArraysWith) : [value];
       params[param] ??= [];
       params[param].push(...values);
     });
