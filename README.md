@@ -22,6 +22,8 @@ to use reactivity everywhere.
 
 ## Examples
 
+### Vanilla JavaScript reactivity sample
+
 ```javascript
 import { autorun, reaction, comparer } from "mobx"
 import { createBrowserHistory } from "history";
@@ -56,6 +58,38 @@ navigation.location.hash = "#y" // `#` can be omitted
 navigation.merge({pathname: "/path", search: "z=3"}) // push history to new location 
 navigation.searchParams.delete("x") // remove all ?x=1&x=.. from search params
 navigation.searchParams.set("y", "2") // remove previous all ?y=1&y=2&y=etc. and set to single value
+```
+
+### React MVC routing service
+
+```tsx
+import { createObservableHistory } from "mobx-observable-history"
+import { Switch } from 'react-history-switch';
+
+...
+
+const routerService = createObservableHistory();
+
+...
+
+const items = [
+  {
+    path: '/',
+    redirect: '/home',
+  },
+  {
+    path: '/home',
+    component: HomePage,
+  },
+  {
+    path: '/next/:param',
+    component: NextPage,
+  },
+];
+
+...
+
+<Switch history={routerService} items={items} />
 ```
 
 ## API
